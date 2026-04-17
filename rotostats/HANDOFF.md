@@ -1,46 +1,26 @@
 # Handoff Notes
 
-**Run:** sgp-input-hardening-2026-04-17
+**Run:** replacement-name-match-audit-2026-04-17
 **Date:** 2026-04-17
-**Slug:** 2026-04-17-sgp-input-hardening
-**Branch:** develop @ 240f683 (all commits landed on origin/develop)
-**Verdict:** PASS_WITH_NOTE
+**Slug:** 2026-04-17-replacement-name-match-audit
+**Branch:** feature/replacement-name-match-audit @ 1d113f5 → PR #6 against develop
+**Verdict:** PASS
 
 ---
 
-1. **`withCallingHandlers` migration required for zero-playing-time callers**: Any downstream
-   code that uses `withCallingHandlers(rotostats_warning_missing_category_column = ...)` to
-   intercept zero-playing-time rows (0/NA IP for ERA/WHIP or 0/NA AB for AVG) must be updated
-   to `withCallingHandlers(rotostats_warning_zero_playing_time = ...)`. The `NEWS.md` breaking
-   changes section documents this with the exact call pattern. This is a **minor breaking
-   change** for callers using `withCallingHandlers` — users catching only the error hierarchy
-   (via `tryCatch`) are unaffected.
+1. **`rotostats_warning_name_match_failure` is now live at both documented sites.** If the `normalize_player_name()` helper is ever updated (e.g., to handle different Unicode normalization forms), both emit sites will automatically pick up the change — no modification to `replacement.R` is needed.
 
-2. **Downstream stubs are now dead code**: The Step 6b code path that previously reached
-   `rotostats_error_missing_config_field` for `pool_baseline = "per_player"` or
-   `"universal_constants"` is now unreachable (Step 1b gates those values first). When
-   implementing support for additional `pool_baseline` values, expand the `valid_pool_baselines`
-   vector in Step 1b — that is the single authoritative gate. The downstream stubs can then be
-   retained or removed at that time.
+2. **This run closes item R1 from `plans/replacement-cleanup.md`.** No follow-up items from this run itself.
 
-3. **`man/sgp.Rd` is now fully regenerated and consistent with `R/sgp.R`**: The Rd file was
-   stale after the out-of-band PR #5 merge. This scriber run regenerated it via
-   `devtools::document()`. Future roxygen edits to `R/sgp.R` must be followed by
-   `devtools::document()` before committing. Per the r-package profile, scriber owns this step.
+3. **The "Thrown by" column in `plans/error-messages.md` line 96 only lists `replacement_level()`.** Now that `replacement_from_prices()` also emits this class at Site 2, the registry entry should be updated to list both functions. This is a minor documentation follow-up and does not affect package behavior.
 
-4. **The 5 pre-existing NOTEs are not regressions**: (a) `.playwright-mcp` hidden directory,
-   (b) `unable to verify current time`, (c) non-standard top-level files, (d) NEWS.md no
-   entries found, (e) Escaped LaTeX specials in replacement Rd files. These are all
-   infrastructure-level issues unrelated to `sgp()`.
+4. **The NEWS.md `## Improvements` entry does not resolve the pre-existing R CMD check NOTE** (`Problems with news in 'NEWS.md': No news entries found`). That NOTE is a pre-existing format issue unrelated to this change and is among the 4 baseline NOTEs on develop.
 
-5. **Follow-up tasks**: See `plans/sgp-cleanup.md` for the R2/R3 follow-on tasks created in
-   the out-of-band `ce1fbde` commit.
+5. **No NAMESPACE, man/, DESCRIPTION, or function signature changes.** The PR requires no breaking-change annotations.
+
+6. **One builder respawn cycle occurred** (non-ASCII em-dash in `cli_warn()` string literals). Fix: `\u2014` escape at lines 1065 and 1285 in commit `272cb97`. Rendered warning message is byte-identical at runtime.
 
 ---
 
-**Workflow violations on record (accepted by user):**
-
-- PR #5 (`docs/cleanup-plans`) merged builder+tester commits ahead of schedule before scriber
-  ran `devtools::document()`. Recovery was clean (feature/sgp-input-hardening-docs branch).
-- Scriber commit `240f683` pushed directly to `origin/develop` rather than via a feature branch
-  and PR. Content was correct (doc regeneration only); user chose "Accept state."
+**PR:** https://github.com/JDenn0514/rotostats/pull/6
+**Commits:** `80afe5c` → `d9b9fe8` → `272cb97` → `1d113f5`
