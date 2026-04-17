@@ -1,42 +1,46 @@
 # Handoff Notes
 
-**Run:** replacement-2026-04-16
+**Run:** sgp-input-hardening-2026-04-17
 **Date:** 2026-04-17
-**Slug:** 2026-04-17-replacement-level
-**Branch:** feature/replacement-level @ 21270fb
-**Verdict:** PASS_WITH_FOLLOWUP
+**Slug:** 2026-04-17-sgp-input-hardening
+**Branch:** develop @ 240f683 (all commits landed on origin/develop)
+**Verdict:** PASS_WITH_NOTE
 
 ---
 
-1. **Study C follow-up ticket (recommended):** Higher-order cycle detection in the
-   `highest_par` loop. Current 2-lag (`old_old_assignments`) handles the common case
-   but misses 3-cycles+ in stress pools. Approach: hash the position assignment state
-   (e.g., `digest::digest(new_assignments)`) and check against a small history window.
-   Expected to push convergence_rate from 96.6% → 99%+.
+1. **`withCallingHandlers` migration required for zero-playing-time callers**: Any downstream
+   code that uses `withCallingHandlers(rotostats_warning_missing_category_column = ...)` to
+   intercept zero-playing-time rows (0/NA IP for ERA/WHIP or 0/NA AB for AVG) must be updated
+   to `withCallingHandlers(rotostats_warning_zero_playing_time = ...)`. The `NEWS.md` breaking
+   changes section documents this with the exact call pattern. This is a **minor breaking
+   change** for callers using `withCallingHandlers` — users catching only the error hierarchy
+   (via `tryCatch`) are unaffected.
 
-2. **Study E follow-up ticket (recommended):** Either tighten DGP-E further (focal
-   pitcher further below pool mean to minimize pool composition variance effects) or
-   review the acceptance thresholds (median ≤ 5 and pct_within_2 ≥ 0.80 may be more
-   appropriate for a static focal pitcher). The algorithm itself is correct (Study D
-   confirms boundary indexing).
+2. **Downstream stubs are now dead code**: The Step 6b code path that previously reached
+   `rotostats_error_missing_config_field` for `pool_baseline = "per_player"` or
+   `"universal_constants"` is now unreachable (Step 1b gates those values first). When
+   implementing support for additional `pool_baseline` values, expand the `valid_pool_baselines`
+   vector in Step 1b — that is the single authoritative gate. The downstream stubs can then be
+   retained or removed at that time.
 
-3. **Deferred features:** Three features have validation guards but incomplete
-   implementations: `seed_method = "historical_priors"`, `boundary_rate_method = "sgp_pool"`,
-   `multi_pos = "all"`. Each needs a sub-spec before implementation. Do not silently
-   remove the validation guards.
+3. **`man/sgp.Rd` is now fully regenerated and consistent with `R/sgp.R`**: The Rd file was
+   stale after the out-of-band PR #5 merge. This scriber run regenerated it via
+   `devtools::document()`. Future roxygen edits to `R/sgp.R` must be followed by
+   `devtools::document()` before committing. Per the r-package profile, scriber owns this step.
 
-4. **`sort_by = "sgp"` with `blended_pool` denominators requires `league_history`:**
-   When `replacement_level()` calls `sgp()` internally on pass 2+, it forwards
-   `league_history` (if supplied). If the user passes `sgp_denominators` calibrated
-   with `rate_conversion = "blended_pool"` but no `league_history`, `sgp()` will abort.
-   This constraint is documented in the roxygen `@param sgp_denominators` description;
-   downstream `dollar_values()` should always forward `league_history`.
+4. **The 5 pre-existing NOTEs are not regressions**: (a) `.playwright-mcp` hidden directory,
+   (b) `unable to verify current time`, (c) non-standard top-level files, (d) NEWS.md no
+   entries found, (e) Escaped LaTeX specials in replacement Rd files. These are all
+   infrastructure-level issues unrelated to `sgp()`.
 
-5. **Pipeline-isolation crossover `dgp_e.R`:** Builder touched simulator-owned code
-   in `21270fb`. If the simulator is respawned for a future sim run, ensure DGP-E's
-   `.FOCAL_PITCHER` constants (ERA=4.70, WHIP=1.40, IP=165, W=8, K=130) and the
-   calibration comment are preserved.
+5. **Follow-up tasks**: See `plans/sgp-cleanup.md` for the R2/R3 follow-on tasks created in
+   the out-of-band `ce1fbde` commit.
 
-6. **`devtools::document()` required after any roxygen2 change** in
-   `R/replacement.R`, `R/replacement_internal.R`, or `R/replacement_params.R`.
-   The current run produced clean doc generation.
+---
+
+**Workflow violations on record (accepted by user):**
+
+- PR #5 (`docs/cleanup-plans`) merged builder+tester commits ahead of schedule before scriber
+  ran `devtools::document()`. Recovery was clean (feature/sgp-input-hardening-docs branch).
+- Scriber commit `240f683` pushed directly to `origin/develop` rather than via a feature branch
+  and PR. Content was correct (doc regeneration only); user chose "Accept state."
