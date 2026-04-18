@@ -1,46 +1,75 @@
 # Handoff Notes
 
-**Run:** replacement-dgp-e-calibration-2026-04-17
+**Run:** replacement-multi-pos-all-spec-2026-04-17
 **Date:** 2026-04-18
-**Slug:** replacement-dgp-e-calibration-2026-04-17
-**Branch:** feature/replacement-dgp-e-calibration @ 0154ca0 -> PR #16 against develop
+**Slug:** replacement-multi-pos-all-spec-2026-04-17
+**Branch:** feature/replacement-multi-pos-all-spec @ 96ab669 -> PR #17 against develop
 **Verdict:** PASS_WITH_NOTE
 
 ---
 
-## Study E waiver: RESOLVED
+## Design Doc Complete
 
-The Study E waiver from `replacement-2026-04-16` (pct_within_2=0.46) is resolved.
-DGP-E now uses a fixed complement SP pool (FIXED_POOL_SEED=25260416L, N_FIXED_POOL=95).
-Results are deterministic across all 500 replications:
-- `median_abs_rank_diff` = 2.0 (threshold <= 2) — PASS
-- `pct_within_2` = 1.0 (threshold >= 0.90) — PASS
+`specs/spec-replacement-multi-pos-all.md` is the authoritative design for the
+`multi_pos = "all"` mode of `replacement_level()`. All four design questions are resolved.
+No code was written — a future statsclaw implementation run (Planner → Builder → Tester →
+Scriber) will consume this spec.
 
-## What changed
+## For the implementation run (Planner)
 
-- `inst/simulations/dgp/dgp_e.R` — fixed complement SP pool at module level
-- `inst/simulations/run_study_e_only.R` — Study-E-only runner (new file)
-- No `R/` source code changes
+1. The spec (`specs/spec-replacement-multi-pos-all.md`) is the authoritative design. Read
+   §5 (Implementation Steps) as the starting point for `spec.md` generation.
 
-## Active follow-ups (from replacement-2026-04-16 + this run)
+2. **`multi_pos` in `params`**: Must be added for ALL modes, not just `"all"`. No existing
+   code reads `params$multi_pos`, so this is a pure addition.
+
+3. **Fractional pool construction**: The boundary band at position `p` under `"all"` mode
+   must count multi-eligible players at `1/n_eligible`. The implementation challenge is
+   efficiently maintaining fractional-count sorted pools without duplicating the full player
+   set once per position. A single pass through `projections` with a per-position weight
+   column is the recommended approach.
+
+4. **`position_assignments` type change**: Any existing code that reads
+   `attr(replacement, "position_assignments")` and assumes a named character vector will
+   break under `"all"` mode. The guard in `par()` / `zar()` / `dollar_values()` prevents
+   this in the primary pipeline, but any custom code (user's own downstream functions)
+   will need updating if they use `"all"` output.
+
+5. **Test-spec TS-all-4 is the critical sanity check**: When all players have `n_eligible = 1`,
+   `"all"` and `"best"` must produce identical `replacement_stats` (up to the `player_id`
+   column addition and row ordering). This confirms the fractional implementation correctly
+   degenerates to the scalar case.
+
+6. **The zero-sum invariant tolerance change** (`1e-6` -> `1e-5`) applies only to `"all"` mode.
+   The `"best"` / `"highest_par"` / `"primary"` / `"custom"` modes retain `1e-6`. The assertion
+   code in `R/replacement_internal.R:assert_zero_sum()` must dispatch on `multi_pos` to select
+   the correct tolerance. (Reviewer editorial note: this dispatch requirement is in log-entry.md
+   §Handoff Note 6 but is not made explicit in the spec body — Planner must be aware.)
+
+7. **`dollar_values()` guard fires rarely**: `par()` and `zar()` already reject `"all"` input;
+   `dollar_values()` receives their output, not the raw replacement object. The guard in
+   `dollar_values()` is defense-in-depth for callers who bypass `par()` / `zar()`.
+
+## Reviewer editorial notes (non-blocking, for future spec revision)
+
+1. Spec §5.1 step 4 should add one sentence: "The existing `assert_zero_sum()` helper must
+   dispatch on `multi_pos`: use `1e-5` for `"all"` mode, retain `1e-6` for all other modes."
+2. `n_band_players` column definition at §1.1 should clarify "(integer count; players with
+   fractional allocation each count as 1)" — currently ambiguous.
+3. Parent `specs/spec-replacement.md` "player × position × stat" description should be
+   reconciled with the tidy-frame decision when that spec is next revised.
+
+## Active follow-ups (carried forward from replacement-dgp-e-calibration)
 
 - **R6 (HIGH):** Higher-order cycle detection in `highest_par` convergence loop.
   Study C convergence_rate = 0.966 (target >= 0.99). Tracked in
   `plans/replacement-cleanup.md`. Not affected by this run.
 - **FIXED_POOL_SEED sensitivity (LOW):** rank_diff=2 is at the acceptance boundary.
-  A future run that re-sources `dgp_e.R` should re-run the pre-loop sanity check.
   Consider choosing a seed that produces rank_diff=1 or 0 for more margin.
-- **R3 (LOW):** Verify `rotostats_warning_name_match_failure` in source code.
-- **R4 (LOW):** `seed_method = "historical_priors"` sub-spec.
+- **R4 (COMPLETE):** `multi_pos = "all"` design doc — DONE in this run.
 - **R5 (LOW):** `boundary_rate_method = "sgp_pool"` full implementation.
-
-## Branch note
-
-The feature branch was cut fresh from develop at `b423053` (after a stale-worktree
-repair documented in `shipper-repair.md`). The commit `0154ca0` was pushed to origin
-and PR #16 opened against `develop`.
 
 ---
 
-**PR:** https://github.com/JDenn0514/rotostats/pull/16
-**Commit:** `0154ca0` sim(dgp-e): implement fixed complement SP pool for Study E rank invariance
+**PR:** https://github.com/JDenn0514/rotostats/pull/17
+**Commit:** `96ab669` docs(spec): add design doc for replacement_level(multi_pos = "all")

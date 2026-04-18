@@ -1,61 +1,41 @@
-# Documentation Changes: sgp-denom-weights-guidance-docs-2026-04-17
+# Docs Trace — replacement-multi-pos-all-spec-2026-04-18
 
-**Date:** 2026-04-18
-**Workflow:** 3 (docs-only)
+## Summary
 
----
+This run produced a design doc for the `multi_pos = "all"` mode of `replacement_level()`.
+No user-facing help files, vignettes, or man pages were modified (those are deferred to the
+implementation run). The changes are developer-facing design artifacts.
 
-## Files Modified
+## Files Modified / Created
 
-| File | Change | Notes |
-|---|---|---|
-| `R/sgp-denominators.R` | Added `## Choosing weights` subsection to `@details` | Roxygen-only; no code change |
-| `man/sgp_denominators.Rd` | Regenerated | Reflects new `@details` content |
+| File | Action | Notes |
+|------|--------|-------|
+| `specs/spec-replacement-multi-pos-all.md` | Created | Design doc — primary deliverable |
+| `plans/error-messages.md` | Modified | Added `rotostats_error_multi_pos_all_unsupported` row |
+| `ARCHITECTURE.md` | Modified | Run header update; "all" mode design notes; new Key Design Decisions section |
 
----
+## Doc Generation Commands
 
-## Summary of Changes
-
-### `R/sgp-denominators.R` — `sgp_denominators()` `@details`
-
-A new `## Choosing weights` subsection was appended to the `@details` block, placed
-between `## Dependency notes` and `@section Caveats:`.
-
-The subsection:
-
-1. Names each of the three standard weight presets with its intended regime:
-   - `flat()`: i.i.d. assumption; lowest MSE when no structural break is present.
-   - `exp_decay(0.9)`: mild decay; the default; reasonable compromise when a break is
-     suspected but not confirmed.
-   - `exp_decay(0.7)`: strong decay; use when a within-year dispersion break is known
-     or expected; cites Q4 Monte Carlo validation (71% MSE reduction vs flat under
-     sigma-shift DGP from `runs/sgp-denom-dgpb-rerun-2026-04-17`).
-
-2. Includes one sentence on the per-category SB override pattern, citing Q7 results
-   (93.5% SB MSE reduction, < 1% HR MSE change):
-   ```
-   category_spec = cal_spec(SB = cal(years = after(2005), weights = exp_decay(0.7)))
-   ```
-
----
-
-## Doc Generation
-
-Run `devtools::document()` from the package root to regenerate Rd files. This was done
-as part of the workflow; `man/sgp_denominators.Rd` is current.
-
-No other doc generation commands are required.
-
----
-
-## Deferred Items
-
-None.
-
----
+None required. No roxygen2 changes were made.
 
 ## Architecture Diagram
 
-`ARCHITECTURE.md` updated in target repo root to reflect this run.
-Run directory copy: `/Users/jacobdennen/.claude/plugins/data/statsclaw-statsclaw/workspace/rotostats/runs/sgp-denom-weights-guidance-docs-2026-04-17/ARCHITECTURE.md`
-(See shipper sync step.)
+`ARCHITECTURE.md` was updated in the target repo and copied to the run directory.
+The update is minimal: run header, one bullet point under "Known Limitations", and a new
+"Key Design Decisions (replacement-multi-pos-all-spec-2026-04-18)" section.
+
+## Deferred Items
+
+- Man page for `replacement_level()` will need updating when the `"all"` mode is
+  implemented: `@param multi_pos`, `@return` (shape change for `replacement_stats`,
+  `position_assignments` list format), and a new `@examples` block showing the long-frame
+  output.
+- Man pages for `par()`, `zar()`, `dollar_values()` will need a note that `multi_pos = "all"`
+  input raises `rotostats_error_multi_pos_all_unsupported`.
+- `NEWS.md` entry for user-visible change (new `"all"` mode) is a builder/scriber
+  responsibility in the implementation run.
+
+## Notes
+
+- `devtools::document()` is not required for this run.
+- `devtools::check()` is not required for this run (no R code changed).
