@@ -1,41 +1,57 @@
-# Docs Trace — replacement-multi-pos-all-spec-2026-04-18
+# docs.md — par-2026-04-18
 
-## Summary
+**Scriber:** claude-sonnet-4-6
+**Date:** 2026-04-18
 
-This run produced a design doc for the `multi_pos = "all"` mode of `replacement_level()`.
-No user-facing help files, vignettes, or man pages were modified (those are deferred to the
-implementation run). The changes are developer-facing design artifacts.
+---
 
-## Files Modified / Created
+## Documentation Changes Summary
 
-| File | Action | Notes |
-|------|--------|-------|
-| `specs/spec-replacement-multi-pos-all.md` | Created | Design doc — primary deliverable |
-| `plans/error-messages.md` | Modified | Added `rotostats_error_multi_pos_all_unsupported` row |
-| `ARCHITECTURE.md` | Modified | Run header update; "all" mode design notes; new Key Design Decisions section |
+### Files Modified
 
-## Doc Generation Commands
+| File | Action | Description |
+|---|---|---|
+| `ARCHITECTURE.md` | Updated | Added `par()` to module structure, function call graph, data flow diagram, module reference table, and a new PAR Section with full algorithm description, input/output contract, error/warning class table, and known limitations. Added Key Design Decisions section for par-2026-04-18 run. |
+| `NEWS.md` | Updated | Added `par()` entry under `## New functions` at the top of the development version section. Merged in all entries from prior runs that were missing from the worktree's older NEWS.md baseline. |
 
-None required. No roxygen2 changes were made.
+### Architecture Diagram (`ARCHITECTURE.md`)
 
-## Architecture Diagram
+The ARCHITECTURE.md was updated to reflect `par()` as a new top-level function in the valuation pipeline. Specific changes:
 
-`ARCHITECTURE.md` was updated in the target repo and copied to the run directory.
-The update is minimal: run header, one bullet point under "Known Limitations", and a new
-"Key Design Decisions (replacement-multi-pos-all-spec-2026-04-18)" section.
+1. **Module Structure diagram**: Added `PAR["par()"]` node to the API Layer subgraph, added `PAR_LAYER["PAR Layer"]` subgraph containing `PAR_BODY["par() body ..."]`, added edges `PAR --> PAR_BODY`, `PAR_BODY --> SGP_BODY`, `PAR_BODY --> RL_BODY`. Changed nodes (`PAR`, `PAR_BODY`) highlighted in blue (`fill:#1e90ff,stroke:#1565c0,color:#fff`).
 
-## Deferred Items
+2. **Function Call Graph**: Added dedicated `par()` call graph showing all 13 steps, the two internal `sgp()` calls, and the `stats::median()` band check. Changed nodes highlighted in blue.
 
-- Man page for `replacement_level()` will need updating when the `"all"` mode is
-  implemented: `@param multi_pos`, `@return` (shape change for `replacement_stats`,
-  `position_assignments` list format), and a new `@examples` block showing the long-frame
-  output.
-- Man pages for `par()`, `zar()`, `dollar_values()` will need a note that `multi_pos = "all"`
-  input raises `rotostats_error_multi_pos_all_unsupported`.
-- `NEWS.md` entry for user-visible change (new `"all"` mode) is a builder/scriber
-  responsibility in the implementation run.
+3. **Data Flow diagram**: Expanded the downstream section. Added `ROUT` node (replacement_level output) flowing into `PAR["par()"]`, dual `sgp()` calls, combined-frame construction, vectorized subtraction, band check decision diamond, and `PAROUT` (final data frame with attributes). `par()` correctly slots between `replacement_level()` and future `dollar_values()`.
 
-## Notes
+4. **Module Reference Table**: Added row for `R/par.R — par()` marked as `Changed in This Run: YES (new)`. Added row for `plans/error-messages.md` noting `rotostats_warning_band_check` added.
 
-- `devtools::document()` is not required for this run.
-- `devtools::check()` is not required for this run (no R code changed).
+5. **PAR Section (new)**: Complete prose section describing purpose, input contract, algorithm sketch (dual sgp() calls, vectorized subtraction, band check), output contract, error/warning classes, known limitations, and cross-references.
+
+6. **Key Design Decisions (par-2026-04-18)**: 6 entries documenting: dual sgp() calls with combined frame, `PLAYER_ID` uppercase column normalization, `lapply()` vs `vapply()` for band collection, `na.rm = TRUE` deviation from original spec, Step 1b early category mismatch check, and SS/2B wider simulation tolerance.
+
+### NEWS.md Entry
+
+Added under `## New functions` at the top (before `replacement_level()`):
+
+```
+* `par()` — Computes per-player Points Above Replacement (PAR) in SGP units.
+  [... full entry with band check caveat and structural limitation note ...]
+```
+
+The NEWS.md entry highlights: PAR computation via `sgp()` delegation, SP/RP separate baselines, `include_raw` option, `rotostats_warning_band_check`, and the known limitation that the band check cannot detect `n_teams` miscalibration.
+
+### Documentation Generation
+
+No `devtools::document()` run is needed in this scriber step — `man/par.Rd` was already generated by builder's `devtools::document()` call (committed with the implementation). The roxygen2 block in `R/par.R` is complete and accurate per the builder's and tester's validation.
+
+### `ARCHITECTURE.md` Written To
+
+- **Target repo:** `/Users/jacobdennen/rotostats/.claude/worktrees/agent-a5eb6400/ARCHITECTURE.md` (worktree copy; user-facing)
+- **Run directory:** `/Users/jacobdennen/.claude/plugins/data/statsclaw-statsclaw/workspace/rotostats/runs/par-2026-04-18/ARCHITECTURE.md` (reviewer copy)
+
+### Deferred Items
+
+- `docs.md` at the project root does not exist; no update needed.
+- `README.md` and `README.Rmd` were not updated — `par()` is a pre-release internal function not yet documented in user-facing README. Follow-up when `dollar_values()` is implemented and the full valuation pipeline is user-ready.
+- The `plans/error-messages.md` entry for `rotostats_warning_band_check` was written by builder. Scriber verified it exists (committed in `3f7c633`). No further action needed.

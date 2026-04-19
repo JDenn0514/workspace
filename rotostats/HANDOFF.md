@@ -1,75 +1,49 @@
 # Handoff Notes
 
-**Run:** replacement-multi-pos-all-spec-2026-04-17
+**Run:** par-2026-04-18
 **Date:** 2026-04-18
-**Slug:** replacement-multi-pos-all-spec-2026-04-17
-**Branch:** feature/replacement-multi-pos-all-spec @ 96ab669 -> PR #17 against develop
+**Slug:** par-2026-04-18
+**Branch:** feature/par @ 70e13d5 -> PR #18 against develop
 **Verdict:** PASS_WITH_NOTE
 
 ---
 
-## Design Doc Complete
+## What Shipped
 
-`specs/spec-replacement-multi-pos-all.md` is the authoritative design for the
-`multi_pos = "all"` mode of `replacement_level()`. All four design questions are resolved.
-No code was written — a future statsclaw implementation run (Planner → Builder → Tester →
-Scriber) will consume this spec.
+`par()` is a new exported function in `R/par.R` that computes per-player Points
+Above Replacement (PAR) in SGP units. It takes a `replacement_level()` output
+and a `sgp_denominators()` output, delegates all SGP conversion to `sgp()`, and
+subtracts the position-specific replacement-level SGP from each player's
+individual SGP. SP and RP always use separate replacement baselines. The function
+includes a band calibration check that warns when the median `total_par` of the
++/-K players around the roster boundary exceeds a configurable threshold.
 
-## For the implementation run (Planner)
+`rotostats_warning_band_check` was added to `plans/error-messages.md` as a new
+warning class entry. A Monte Carlo simulation harness at
+`tests/simulations/sim-par.R` (5 scenarios x 200 reps = 1,000 total) validates
+the delegation identity invariant, boundary anchoring, and band check behavior.
 
-1. The spec (`specs/spec-replacement-multi-pos-all.md`) is the authoritative design. Read
-   §5 (Implementation Steps) as the starting point for `spec.md` generation.
+## For the Next Run (Planner)
 
-2. **`multi_pos` in `params`**: Must be added for ALL modes, not just `"all"`. No existing
-   code reads `params$multi_pos`, so this is a pure addition.
+- Future `dollar_values()` function will take `par()` output as its primary input and allocate the league's total surplus budget in proportion to each player's `total_par`.
+- `par()` rejects `multi_pos = "all"` replacement objects with `rotostats_error_multi_pos_all_unsupported` (design decision from `replacement-multi-pos-all-spec-2026-04-18`). This is not yet tested because the `"all"` mode itself is deferred.
+- `replacement_from_prices()` output is intentionally incompatible with `par()` (NULL projections attribute). The error message in `rotostats_error_missing_replacement_attrs` explains this explicitly.
+- The band check cannot detect `n_teams` miscalibration — documented in `ARCHITECTURE.md §PAR Section — Known Limitations`. A future `reference_config` parameter is the correct approach.
 
-3. **Fractional pool construction**: The boundary band at position `p` under `"all"` mode
-   must count multi-eligible players at `1/n_eligible`. The implementation challenge is
-   efficiently maintaining fractional-count sorted pools without duplicating the full player
-   set once per position. A single pass through `projections` with a per-position weight
-   column is the recommended approach.
+## Reviewer Notes (deferred, non-blocking)
 
-4. **`position_assignments` type change**: Any existing code that reads
-   `attr(replacement, "position_assignments")` and assumes a named character vector will
-   break under `"all"` mode. The guard in `par()` / `zar()` / `dollar_values()` prevents
-   this in the primary pipeline, but any custom code (user's own downstream functions)
-   will need updating if they use `"all"` output.
+1. **Summary CSV `ac_sim2_pass` shows FALSE for S1/S3**: Pre-amendment 0.05 blanket tolerance in CSV. Authoritative SV-1 assertions in `test-par-sim.R` use correct position-specific tolerances. Optionally re-run harness post-merge for a clean CSV.
+2. **Roxygen gap**: (a) `@details` Step 10 and `@return` describe `na.rm = FALSE` but code uses `na.rm = TRUE`; (b) `@examples` entirely in `\dontrun{}`. Both are pre-CRAN-submission issues. Defer to follow-up scriber commit before `dollar_values()` PR.
+3. **HANDOFF.md in target repo root**: Pre-existing since initial scaffolding (2026-04-10). Low-risk project hygiene item.
 
-5. **Test-spec TS-all-4 is the critical sanity check**: When all players have `n_eligible = 1`,
-   `"all"` and `"best"` must produce identical `replacement_stats` (up to the `player_id`
-   column addition and row ordering). This confirms the fractional implementation correctly
-   degenerates to the scalar case.
+## Active Follow-ups (carried forward)
 
-6. **The zero-sum invariant tolerance change** (`1e-6` -> `1e-5`) applies only to `"all"` mode.
-   The `"best"` / `"highest_par"` / `"primary"` / `"custom"` modes retain `1e-6`. The assertion
-   code in `R/replacement_internal.R:assert_zero_sum()` must dispatch on `multi_pos` to select
-   the correct tolerance. (Reviewer editorial note: this dispatch requirement is in log-entry.md
-   §Handoff Note 6 but is not made explicit in the spec body — Planner must be aware.)
-
-7. **`dollar_values()` guard fires rarely**: `par()` and `zar()` already reject `"all"` input;
-   `dollar_values()` receives their output, not the raw replacement object. The guard in
-   `dollar_values()` is defense-in-depth for callers who bypass `par()` / `zar()`.
-
-## Reviewer editorial notes (non-blocking, for future spec revision)
-
-1. Spec §5.1 step 4 should add one sentence: "The existing `assert_zero_sum()` helper must
-   dispatch on `multi_pos`: use `1e-5` for `"all"` mode, retain `1e-6` for all other modes."
-2. `n_band_players` column definition at §1.1 should clarify "(integer count; players with
-   fractional allocation each count as 1)" — currently ambiguous.
-3. Parent `specs/spec-replacement.md` "player × position × stat" description should be
-   reconciled with the tidy-frame decision when that spec is next revised.
-
-## Active follow-ups (carried forward from replacement-dgp-e-calibration)
-
-- **R6 (HIGH):** Higher-order cycle detection in `highest_par` convergence loop.
-  Study C convergence_rate = 0.966 (target >= 0.99). Tracked in
-  `plans/replacement-cleanup.md`. Not affected by this run.
+- **R6 (HIGH):** Higher-order cycle detection in `highest_par` convergence loop. Study C convergence_rate = 0.966 (target >= 0.99). Tracked in `plans/replacement-cleanup.md`.
 - **FIXED_POOL_SEED sensitivity (LOW):** rank_diff=2 is at the acceptance boundary.
-  Consider choosing a seed that produces rank_diff=1 or 0 for more margin.
-- **R4 (COMPLETE):** `multi_pos = "all"` design doc — DONE in this run.
 - **R5 (LOW):** `boundary_rate_method = "sgp_pool"` full implementation.
+- **multi_pos = "all" implementation (SPEC READY):** `specs/spec-replacement-multi-pos-all.md` is the authoritative design. Ready for implementation run.
 
 ---
 
-**PR:** https://github.com/JDenn0514/rotostats/pull/17
-**Commit:** `96ab669` docs(spec): add design doc for replacement_level(multi_pos = "all")
+**PR:** https://github.com/JDenn0514/rotostats/pull/18
+**Commit:** `70e13d5` docs(par): correct na.rm in total_par roxygen to match implementation
