@@ -1,57 +1,108 @@
-# docs.md — par-2026-04-18
+# Documentation Changes — replacement-higher-order-cycle-2026-04-17
 
-**Scriber:** claude-sonnet-4-6
-**Date:** 2026-04-18
+**Date:** 2026-04-20
+**Profile:** r-package
+**Verdict:** PASS
 
----
+## Summary
 
-## Documentation Changes Summary
+This run introduces one new user-visible parameter (`cycle_history_window`) and changes
+the convergence behavior of `replacement_level()` for `multi_pos = "highest_par"`. All
+user-facing documentation has been updated to reflect these changes.
 
-### Files Modified
+## Files Modified
 
 | File | Action | Description |
-|---|---|---|
-| `ARCHITECTURE.md` | Updated | Added `par()` to module structure, function call graph, data flow diagram, module reference table, and a new PAR Section with full algorithm description, input/output contract, error/warning class table, and known limitations. Added Key Design Decisions section for par-2026-04-18 run. |
-| `NEWS.md` | Updated | Added `par()` entry under `## New functions` at the top of the development version section. Merged in all entries from prior runs that were missing from the worktree's older NEWS.md baseline. |
+| --- | --- | --- |
+| `R/replacement.R` — roxygen `@param replacement_params` | modified | Added `cycle_history_window` description (integer, default 5L, range [2, 50], usage guidance) after existing `convergence_max_iter` mention |
+| `R/replacement_params.R` — `@format` | modified | Changed "nine elements" to "ten elements"; appended `cycle_history_window` entry description |
+| `man/replacement_level.Rd` | regenerated | `devtools::document()` — picks up `cycle_history_window` in `@param replacement_params` |
+| `man/default_replacement_params.Rd` | regenerated | `devtools::document()` — picks up updated `@format` with 10 elements |
+| `NEWS.md` | verified correct | Builder's "Improvements" bullet is accurate and complete (see below) |
+| `ARCHITECTURE.md` | updated | Full update: replaced 2-lag language with state-hash ring buffer description; updated module reference table, function call graph, data flow, key invariants, design decisions |
 
-### Architecture Diagram (`ARCHITECTURE.md`)
+## Roxygen Documentation Verification
 
-The ARCHITECTURE.md was updated to reflect `par()` as a new top-level function in the valuation pipeline. Specific changes:
+### `replacement_level()` — `@param replacement_params`
 
-1. **Module Structure diagram**: Added `PAR["par()"]` node to the API Layer subgraph, added `PAR_LAYER["PAR Layer"]` subgraph containing `PAR_BODY["par() body ..."]`, added edges `PAR --> PAR_BODY`, `PAR_BODY --> SGP_BODY`, `PAR_BODY --> RL_BODY`. Changed nodes (`PAR`, `PAR_BODY`) highlighted in blue (`fill:#1e90ff,stroke:#1565c0,color:#fff`).
+Builder added the following text (verified in `R/replacement.R` around line 94):
 
-2. **Function Call Graph**: Added dedicated `par()` call graph showing all 13 steps, the two internal `sgp()` calls, and the `stats::median()` band check. Changed nodes highlighted in blue.
+> `cycle_history_window` (integer, default 5L): depth of the rolling assignment-hash
+> history window used to detect higher-order convergence cycles (periods 2 through N)
+> in the `multi_pos = "highest_par"` loop. Increase if you observe non-convergence in
+> pools with many near-boundary multi-eligible players.
 
-3. **Data Flow diagram**: Expanded the downstream section. Added `ROUT` node (replacement_level output) flowing into `PAR["par()"]`, dual `sgp()` calls, combined-frame construction, vectorized subtraction, band check decision diamond, and `PAROUT` (final data frame with attributes). `par()` correctly slots between `replacement_level()` and future `dollar_values()`.
+This description is accurate and consistent with the spec. No changes needed.
 
-4. **Module Reference Table**: Added row for `R/par.R — par()` marked as `Changed in This Run: YES (new)`. Added row for `plans/error-messages.md` noting `rotostats_warning_band_check` added.
+### `default_replacement_params` — `@format`
 
-5. **PAR Section (new)**: Complete prose section describing purpose, input contract, algorithm sketch (dual sgp() calls, vectorized subtraction, band check), output contract, error/warning classes, known limitations, and cross-references.
+Builder updated to "ten elements" and appended:
 
-6. **Key Design Decisions (par-2026-04-18)**: 6 entries documenting: dual sgp() calls with combined frame, `PLAYER_ID` uppercase column normalization, `lapply()` vs `vapply()` for band collection, `na.rm = TRUE` deviation from original spec, Step 1b early category mismatch check, and SS/2B wider simulation tolerance.
+> `cycle_history_window` (integer, default 5L, rolling assignment-hash history window
+> depth for higher-order cycle detection).
 
-### NEWS.md Entry
+This is accurate and consistent with the implementation. No changes needed.
 
-Added under `## New functions` at the top (before `replacement_level()`):
+### `man/` files
+
+Both `man/replacement_level.Rd` and `man/default_replacement_params.Rd` were regenerated
+by builder via `devtools::document()`. Tester confirmed `devtools::document()` exits clean
+with no errors. No manual edits to `.Rd` files required.
+
+## NEWS.md Verification
+
+Builder added the following under "## Improvements" in the unreleased section:
 
 ```
-* `par()` — Computes per-player Points Above Replacement (PAR) in SGP units.
-  [... full entry with band check caveat and structural limitation note ...]
+* `replacement_level()`: The multi-position convergence loop now detects
+  higher-order assignment cycles (periods 3–5) using a rolling state-hash
+  buffer of depth `replacement_params$cycle_history_window` (default 5).
+  Previously only 2-cycles were detected. This eliminates the
+  `rotostats_warning_convergence_not_reached` false-alarm that occurred in
+  ~3% of highly multi-eligible pools.
 ```
 
-The NEWS.md entry highlights: PAR computation via `sgp()` delegation, SP/RP separate baselines, `include_raw` option, `rotostats_warning_band_check`, and the known limitation that the band check cannot detect `n_teams` miscalibration.
+Verified: this entry is accurate. The claim "~3%" matches the Study C baseline of
+`convergence_rate = 0.966` (3.4% non-convergence). The period range "periods 3–5"
+(not 2, because 2-cycles were already detected) is precise. The wording "false-alarm"
+is accurate — the warning was emitted for convergent pools that were cycling, not
+for genuinely non-convergent cases.
 
-### Documentation Generation
+No additional NEWS.md entries needed.
 
-No `devtools::document()` run is needed in this scriber step — `man/par.Rd` was already generated by builder's `devtools::document()` call (committed with the implementation). The roxygen2 block in `R/par.R` is complete and accurate per the builder's and tester's validation.
+## ARCHITECTURE.md Changes
 
-### `ARCHITECTURE.md` Written To
+Full update produced. Key changes from prior version (`replacement-multi-pos-all-spec-2026-04-18`):
 
-- **Target repo:** `/Users/jacobdennen/rotostats/.claude/worktrees/agent-a5eb6400/ARCHITECTURE.md` (worktree copy; user-facing)
-- **Run directory:** `/Users/jacobdennen/.claude/plugins/data/statsclaw-statsclaw/workspace/rotostats/runs/par-2026-04-18/ARCHITECTURE.md` (reviewer copy)
+1. **Header**: updated Run, Branch, Date.
+2. **Module Structure diagram**: `RL_BODY` node label updated to include "state-hash cycle detector"; `RL_PARAMS` node updated to "(10 entries incl. cycle_history_window)".
+3. **Function Call Graph**: replaced the prior `replacement_level()` call graph (which described `MPOS` as "highest_par + 2-cycle detect") with a full breakdown of H1/H2/H3/H4 blocks showing the ring buffer flow.
+4. **Data Flow diagram**: new diagram traces `cycle_history_window` validation → ring buffer init → hash computation → cycle check → push path.
+5. **Module Reference Table**: `replacement_level()`, `default_replacement_params`, `dgp_c.R`, and `test-replacement.R` rows updated with "Changed in This Run = YES" and accurate descriptions.
+6. **Replacement Level Section**: "Multi-position iteration loop" sub-section updated to describe state-hash mechanism, order-invariant hash formula, push timing, `highest_par` gate, and `rotostats_error_pool_too_small` preservation rationale.
+7. **Known Limitations**: item 1 updated from "Study C near-miss (96.6%)" to "Cycles of period > N still hit max_iter" with guidance for users.
+8. **Key Design Decisions**: new section "replacement-higher-order-cycle-2026-04-17" added with 6 decisions.
 
-### Deferred Items
+## Vignettes
 
-- `docs.md` at the project root does not exist; no update needed.
-- `README.md` and `README.Rmd` were not updated — `par()` is a pre-release internal function not yet documented in user-facing README. Follow-up when `dollar_values()` is implemented and the full valuation pipeline is user-ready.
-- The `plans/error-messages.md` entry for `rotostats_warning_band_check` was written by builder. Scriber verified it exists (committed in `3f7c633`). No further action needed.
+No vignettes reference the convergence loop mechanics. No vignette changes needed.
+
+The package does not currently have a pkgdown site configured; no pkgdown changes needed.
+
+## devtools::document() Status
+
+Run by both builder (twice, confirmed clean) and tester (confirmed no drift).
+Result: `man/replacement_level.Rd` and `man/default_replacement_params.Rd` regenerated.
+No manual `.Rd` edits needed or made.
+
+## Deferred Items
+
+- None for this run. All in-scope documentation surfaces have been updated.
+- Future: if `multi_pos = "all"` is implemented (deferred per ARCHITECTURE.md Known Limitations item 4), the convergence loop section will need updating to note that the state-hash detector is gated by `multi_pos == "highest_par"` and does not apply to `"all"` mode.
+
+## ARCHITECTURE.md Locations
+
+- Target repo root: `/Users/jacobdennen/rotostats/ARCHITECTURE.md`
+- Run directory mirror: `/Users/jacobdennen/.claude/plugins/data/statsclaw-statsclaw/workspace/rotostats/runs/replacement-higher-order-cycle-2026-04-17/ARCHITECTURE.md`
+
+Both copies are identical and produced in this run.
