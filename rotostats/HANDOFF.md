@@ -1,36 +1,46 @@
 # Handoff Notes
 
-**Run:** zaa-test-coverage-extensions-2026-04-21
-**Date:** 2026-04-21
-**Slug:** zaa-test-coverage-extensions-2026-04-21
-**Branch:** feature/zaa-test-coverage-extensions @ 59dbcb8 → PR #24 (open, base: develop)
-**Verdict:** SHIP
+**Run:** pvm-2026-04-23
+**Date:** 2026-04-24
+**Slug:** pvm-2026-04-23
+**Branch:** feature/pvm @ 96e57e9 → PR #28 (open, base: develop)
+**Verdict:** PASS WITH NOTE
 
 ---
 
 ## What Was Done
 
-Test-only run. Added TS-ZAA-Z1a and TS-ZAA-19 to `tests/testthat/test-zaa.R`,
-closing both coverage gaps flagged in the `zaa-2026-04-21` review (PR #23).
+Implemented `pvm()` — the Proportional Value Matrix estimator — as a new function
+in `R/pvm.R`. `pvm()` computes per-player, per-category proportional shares of
+above-replacement production in budget-fraction units. It consumes a
+`replacement_level()` output and returns a data frame with `pvm_[CAT]` columns,
+`total_pvm`, and optional `contrib_[CAT]` columns when `include_raw = TRUE`.
 
-**TS-ZAA-Z1a** exercises the `blank_labels` fix (1c3ef24) end-to-end: mixed
-hitter/pitcher pool with `replacement` + `hitter_pool="positional"`. Asserts
-call succeeds, nrow equals pool size, distribution is positionally nested,
-and units/anchor attributes are correct.
+**Key artifacts added:**
+- `R/pvm.R` (766 lines) — full 11-step algorithm, three `rate_pool` modes, two
+  `sub_replacement` modes, `cat_pct` auto/equal/named-vector
+- `man/pvm.Rd`, `NAMESPACE` (`export(pvm)`), `NEWS.md`, `ARCHITECTURE.md` updated
+- `tests/testthat/test-pvm.R` + `helper-pvm-fixtures.R` — TS-PVM-1..20, PROP-1..6,
+  BENCH-1 (130 tests, 130/130 PASS)
+- `inst/simulations/sim-pvm.R` + `inst/simulations/dgp/dgp_pvm.R` — 4-study MC harness
+- `tests/simulations/sim-pvm-results.rds` + `sim-pvm-summary.csv` — 9,000-draw sweep
 
-**TS-ZAA-19** pins the `na.rm=FALSE` NA propagation rule for AVG in a mixed
-pool with `weight_method="linear"`: pitcher `total_zaa = NA` (via NA AB),
-hitter `total_zaa` finite, hitter linear multiplier ratio = 1.0 (5/5).
-
-Test count: 104 → 125 PASS. `devtools::check()`: 0/0/6 (unchanged).
-Frozen surfaces clean: only `tests/testthat/test-zaa.R` in diff.
+Two BLOCK cycles resolved:
+1. NA propagation in `total_pvm` matrix multiply (zero-fill before `%*%`) + DGP
+   `position_assignments` keyed by player name instead of PLAYER_ID
+2. Rate-stat pool formula for `pool_average` and `fixed_baseline`: algebraic
+   cancellation collapsed Pool to zero under uniform IP. Fix: `Pool = sum(pmax(ex, 0))`
 
 ---
 
 ## What Comes Next
 
-PR #24 is open against `develop`. Merge when ready. No follow-up test or
-implementation work required for these coverage items.
+PR #28 is open against `develop`. Before merging:
 
-The `inverse-categories-2026-04-21` branch (feature/inverse-categories @
-6299b30) remains local-only — it will need its own ship run when ready to push.
+- [ ] Run `devtools::check()` locally — the `R/sgp.R` top-level execution blocker
+  is already fixed on `develop` (commit `b946f50`), so check should now pass
+- [ ] Update `plans/error-messages.md` "Thrown by" columns for three pvm-relevant
+  classes (`rotostats_error_category_mismatch`, `rotostats_error_missing_config_field`,
+  `rotostats_error_multi_pos_all_unsupported`) — documentation-only, no code impact
+- [ ] OPS test coverage when OPS support ships (forward-compatible path already in
+  `R/pvm.R`, no test coverage this run)
